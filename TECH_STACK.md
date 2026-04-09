@@ -1,8 +1,26 @@
 # Cloud Heroes Africa - Technical Stack Documentation
 
+## 📋 Table of Contents
+1. [Overview](#overview)
+2. [Backend Technologies](#backend-technologies)
+3. [Frontend Technologies](#frontend-technologies)
+4. [Infrastructure & Deployment](#infrastructure--deployment)
+5. [Architecture Patterns](#architecture-patterns)
+6. [Authentication Flow](#authentication-flow)
+7. [API Endpoints](#api-endpoints)
+8. [Database Schema](#database-schema)
+9. [Security Measures](#security-measures)
+10. [Development Workflow](#development-workflow)
+
+---
+
 ## Overview
 
-Cloud Heroes Africa is a full-stack MERN (MongoDB, Express, React, Node.js) application with comprehensive IAM features, supporting four distinct user personas: Students, Administrators, Donors, and Volunteers.
+**Cloud Heroes Africa** is a production-ready full-stack MERN application with enterprise-grade authentication, multi-payment gateway integration, and real-time communication. It supports four distinct user roles: **Students, Administrators, Donors, and Volunteers**.
+
+**Architecture Type:** MERN Stack + Python Services + Microservices Ready  
+**Deployment Model:** Cloud-native (MongoDB Atlas, Socket.io, REST APIs)  
+**Security Level:** Enterprise-grade (OAuth 2.0, JWT, MFA, Role-Based Access Control)
 
 ---
 

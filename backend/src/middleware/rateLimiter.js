@@ -8,7 +8,11 @@ const limiter = rateLimit({
     message: 'Too many requests from this IP, please try again later.'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skip: (req) => {
+    // Disable rate limiting in development mode
+    return process.env.NODE_ENV === 'development';
+  }
 });
 
 module.exports = limiter;

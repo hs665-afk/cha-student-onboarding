@@ -468,7 +468,7 @@ If you find this project useful, please consider giving it a star ⭐
 
 ---
 
-**Built with ❤️ for Africa by Cloud Heroes Africa Team**
+**Built with ❤️ Security Team | Cloud Heroes Africa**
 
 **Version:** 2.0.0 (MERN Stack)  
 **Last Updated:** 2024  
