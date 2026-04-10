@@ -56,6 +56,11 @@ app.use(session({
   }
 }));
 
+// Passport initialization (required for OIDC)
+const passport = require('passport');
+app.use(passport.initialize());
+app.use(passport.session());
+
 // Rate limiting
 app.use('/api/', rateLimiter);
 
@@ -85,10 +90,7 @@ app.use('/api/community', communityRoutes);
 app.use(errorHandler);
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
+mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log('✅ MongoDB Connected'))
 .catch(err => console.error('❌ MongoDB Connection Error:', err));
 

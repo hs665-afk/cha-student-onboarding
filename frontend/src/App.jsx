@@ -8,6 +8,8 @@ import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
 import StudentDashboard from './pages/student/Dashboard';
 import AdministratorDashboard from './pages/administrator/Dashboard';
+import UserManagement from './pages/administrator/UserManagement';
+import RoleAssignment from './pages/administrator/RoleAssignment';
 import DonorDashboard from './pages/donor/Dashboard';
 import VolunteerDashboard from './pages/volunteer/Dashboard';
 import CommunityHome from './pages/community/CommunityHome';
@@ -48,6 +50,18 @@ function App() {
               <Route path="/administrator/dashboard" element={
                 <PrivateRoute role="administrator">
                   <AdministratorDashboard />
+                </PrivateRoute>
+              } />
+
+              <Route path="/admin/users" element={
+                <PrivateRoute role="administrator">
+                  <UserManagement />
+                </PrivateRoute>
+              } />
+
+              <Route path="/admin/roles" element={
+                <PrivateRoute role="administrator">
+                  <RoleAssignment />
                 </PrivateRoute>
               } />
               
