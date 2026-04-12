@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
+const passport = require('passport');
 const http = require('http');
 const socketIO = require('socket.io');
 require('dotenv').config();
@@ -18,6 +19,7 @@ const donorRoutes = require('./routes/donor.routes');
 const volunteerRoutes = require('./routes/volunteer.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const communityRoutes = require('./routes/community.routes');
+const mfaRoutes = require('./routes/mfa.routes');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -56,6 +58,10 @@ app.use(session({
   }
 }));
 
+// Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
 // Rate limiting
 app.use('/api/', rateLimiter);
 
@@ -80,6 +86,7 @@ app.use('/api/donor', donorRoutes);
 app.use('/api/volunteer', volunteerRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/community', communityRoutes);
+app.use('/api/mfa', mfaRoutes);
 
 // Error handling
 app.use(errorHandler);

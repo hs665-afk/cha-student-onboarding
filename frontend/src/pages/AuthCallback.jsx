@@ -24,7 +24,28 @@ const AuthCallback = () => {
         .then(data => {
           if (data.success) {
             setUser(data.user);
-            navigate(`/${role}/dashboard`);
+            
+            // Check MFA status for admins and volunteers
+            if (['administrator', 'volunteer'].includes(role)) {
+              fetch(`${import.meta.env.VITE_API_URL}/api/mfa/status`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              })
+                .then(res => res.json())
+                .then(mfaData => {
+                  if (mfaData.success && !mfaData.mfaEnabled) {
+                    navigate('/mfa-setup');
+                  } else if (mfaData.success && mfaData.mfaEnabled) {
+                    navigate('/mfa-challenge', { state: { role } });
+                  } else {
+                    navigate(`/${role}/dashboard`);
+                  }
+                })
+                .catch(() => navigate(`/${role}/dashboard`));
+            } else {
+              navigate(`/${role}/dashboard`);
+            }
           }
         })
         .catch(err => {

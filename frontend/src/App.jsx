@@ -6,6 +6,8 @@ import { SocketProvider } from './context/SocketContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
+import MFASetup from './pages/MFASetup';
+import MFAChallenge from './pages/MFAChallenge';
 import StudentDashboard from './pages/student/Dashboard';
 import AdministratorDashboard from './pages/administrator/Dashboard';
 import DonorDashboard from './pages/donor/Dashboard';
@@ -21,7 +23,7 @@ import PrivateRoute from './components/auth/PrivateRoute';
 
 function App() {
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
         <SocketProvider>
           <div className="min-h-screen bg-gradient-to-br from-primary-500 to-purple-600">
@@ -31,6 +33,8 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/mfa-setup" element={<MFASetup />} />
+              <Route path="/mfa-challenge" element={<MFAChallenge />} />
               
               {/* Community Routes (Public) */}
               <Route path="/community" element={<CommunityHome />} />

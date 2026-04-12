@@ -57,12 +57,19 @@ passport.use(new AzureStrategy({
   },
   async (iss, sub, profile, accessToken, refreshToken, done) => {
     try {
+      // Extract email from profile - Azure AD can return email in different fields
+      const email = profile.upn || profile.email || profile._json?.email || profile._json?.preferred_username;
+      
+      if (!email) {
+        return done(new Error('Email not provided by Azure AD'), null);
+      }
+      
       let user = await User.findOne({ providerId: profile.oid, provider: 'azure' });
       
       if (!user) {
         user = await User.create({
-          name: profile.displayName,
-          email: profile.upn || profile.email,
+          name: profile.displayName || profile.name || email.split('@')[0],
+          email: email,
           provider: 'azure',
           providerId: profile.oid,
           role: 'administrator', // Default role for Azure AD
@@ -200,8 +207,18 @@ router.get('/me', async (req, res) => {
 // @desc    Logout user
 // @access  Private
 router.post('/logout', (req, res) => {
-  res.clearCookie('token');
-  res.clearCookie('refreshToken');
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/'
+  });
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/'
+  });
   
   res.json({
     success: true,

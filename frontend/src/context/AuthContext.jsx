@@ -36,9 +36,18 @@ export const AuthProvider = ({ children }) => {
     try {
       await api.post('/auth/logout');
       setUser(null);
+      // Clear any local storage or session storage
+      localStorage.clear();
+      sessionStorage.clear();
+      // Redirect to home
       window.location.href = '/';
     } catch (error) {
       console.error('Logout failed:', error);
+      // Force logout even if API call fails
+      setUser(null);
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/';
     }
   };
 
