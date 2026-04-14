@@ -7,7 +7,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
 import MFASetup from './pages/MFASetup';
-import MFAChallenge from './pages/MFAChallenge';
+import MFAVerify from './pages/MFAVerify';
 import StudentDashboard from './pages/student/Dashboard';
 import AdministratorDashboard from './pages/administrator/Dashboard';
 import DonorDashboard from './pages/donor/Dashboard';
@@ -34,7 +34,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/mfa-setup" element={<MFASetup />} />
-              <Route path="/mfa-challenge" element={<MFAChallenge />} />
+              <Route path="/mfa-verify" element={<MFAVerify />} />
               
               {/* Community Routes (Public) */}
               <Route path="/community" element={<CommunityHome />} />

@@ -178,6 +178,7 @@ router.post('/disable', protect, async (req, res) => {
     user.mfaEnabled = false;
     user.mfaSecret = undefined;
     user.mfaBackupCodes = undefined;
+    user.mfaEnrollmentDate = undefined;
     await user.save();
     
     res.json({
@@ -188,6 +189,32 @@ router.post('/disable', protect, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to disable MFA',
+      error: error.message
+    });
+  }
+});
+
+// @route   POST /api/mfa/reset
+// @desc    Reset MFA (for testing)
+// @access  Private
+router.post('/reset', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    
+    user.mfaEnabled = false;
+    user.mfaSecret = undefined;
+    user.mfaBackupCodes = undefined;
+    user.mfaEnrollmentDate = undefined;
+    await user.save();
+    
+    res.json({
+      success: true,
+      message: 'MFA reset successfully. You will be prompted to set it up again.'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reset MFA',
       error: error.message
     });
   }

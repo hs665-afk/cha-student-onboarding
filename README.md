@@ -2,7 +2,7 @@
 
 > Empowering the next generation of cloud professionals across Africa
 
-A comprehensive IAM-focused platform built with the MERN stack, supporting Students, Administrators, Donors, and Volunteers with dual identity provider integration, role-based access control, and multiple payment gateways.
+A comprehensive IAM-focused platform built with the MERN stack, supporting Students, Administrators, Donors, and Volunteers with dual identity provider integration, role-based access control, TOTP-based MFA, and multiple payment gateways.
 
 ---
 
@@ -14,7 +14,12 @@ A comprehensive IAM-focused platform built with the MERN stack, supporting Stude
   - Microsoft Entra ID (Azure AD) for Administrators and Volunteers
 - **JWT Token Authentication** with refresh token rotation
 - **Role-Based Access Control (RBAC)** with four distinct personas
-- **Multi-Factor Authentication (MFA)** with configurable grace periods
+- **Multi-Factor Authentication (MFA)** with TOTP (Time-based One-Time Password)
+  - Supports Google Authenticator, Microsoft Authenticator, and Authy
+  - Mandatory for Administrators and Volunteers on every login
+  - Grace period for Students (14 days) and Donors (30 days)
+  - 10 single-use backup codes for account recovery
+  - QR code setup for easy configuration
 - **Privileged Access Management (PAM)** for Administrators
 
 ### Payment Integration
@@ -35,7 +40,7 @@ A comprehensive IAM-focused platform built with the MERN stack, supporting Stude
 - **Nodemailer** with Gmail integration
 - Welcome emails
 - Donation receipts
-- MFA codes
+- MFA setup instructions
 - Password reset emails
 
 ---
@@ -50,6 +55,8 @@ A comprehensive IAM-focused platform built with the MERN stack, supporting Stude
 - Mongoose (ODM)
 - Passport.js (OAuth)
 - JWT Authentication
+- Speakeasy (TOTP MFA)
+- QRCode (MFA QR generation)
 - Socket.io (Real-time)
 - Nodemailer (Email)
 
@@ -79,7 +86,7 @@ cloud-heroes-africa/
 │   │   ├── models/          # MongoDB schemas
 │   │   ├── routes/          # API endpoints
 │   │   ├── middleware/      # Auth, RBAC, validation
-│   │   ├── services/        # Payment, Email, Socket
+│   │   ├── services/        # Payment, Email, Socket, MFA
 │   │   └── server.js        # Entry point
 │   └── package.json
 │
@@ -106,9 +113,11 @@ cloud-heroes-africa/
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js v18+
+- Node.js v18+ (v16.20.2+ minimum)
 - npm
 - MongoDB Atlas account
+- Google Cloud Console account (for Google OAuth)
+- Azure Portal account (for Microsoft Entra ID)
 
 ### Installation
 
@@ -165,14 +174,14 @@ http://localhost:5173
 - **Authentication:** Google OAuth
 - **MFA Grace Period:** 14 days
 
-### 👨‍💼 Administrators
+### 👨💼 Administrators
 - Manage platform operations
 - User management and role assignment
 - Volunteer vetting
 - Generate invite codes
 - Privileged Access Management (PAM)
 - **Authentication:** Microsoft Entra ID
-- **MFA:** Immediate enforcement
+- **MFA:** Mandatory on every login (TOTP via authenticator app)
 
 ### 💝 Donors
 - Support students with donations
@@ -181,7 +190,7 @@ http://localhost:5173
 - View impact dashboard
 - Guest donation option (no account required)
 - **Authentication:** Google OAuth
-- **MFA Grace Period:** Configurable
+- **MFA Grace Period:** 30 days (configurable)
 
 ### 🤝 Volunteers
 - Mentor students
@@ -189,7 +198,7 @@ http://localhost:5173
 - Class-scoped permissions
 - Track student progress
 - **Authentication:** Microsoft Entra ID
-- **MFA:** Immediate enforcement
+- **MFA:** Mandatory on every login (TOTP via authenticator app)
 
 ---
 
@@ -198,7 +207,12 @@ http://localhost:5173
 - **Dual Identity Provider Strategy** for role separation
 - **JWT Token Authentication** with secure HttpOnly cookies
 - **Role-Based Access Control (RBAC)** with granular permissions
-- **Multi-Factor Authentication (MFA)** enforcement
+- **Multi-Factor Authentication (MFA)** with TOTP standard
+  - QR code setup with authenticator apps
+  - 6-digit time-based codes
+  - 10 single-use backup codes per user
+  - Mandatory verification on every login for admins/volunteers
+  - Speakeasy library for TOTP generation
 - **Continuous Authorization Checks (CHA)** for session integrity
 - **Rate Limiting** to prevent abuse
 - **Input Validation** with express-validator
@@ -206,6 +220,29 @@ http://localhost:5173
 - **CORS Configuration** for cross-origin requests
 - **Password Hashing** with bcrypt
 - **Audit Logging** for compliance (POPIA & GDPR)
+
+---
+
+## 🔒 MFA Authentication Flow
+
+### First Login (Administrators & Volunteers)
+1. Login with Microsoft Entra ID
+2. Complete OAuth authentication
+3. Redirect to MFA Setup page
+4. Scan QR code with authenticator app (Google Authenticator, Microsoft Authenticator, or Authy)
+5. Enter 6-digit verification code
+6. Save 10 backup codes securely
+7. Access dashboard
+
+### Subsequent Logins (Administrators & Volunteers)
+1. Login with Microsoft Entra ID
+2. Complete OAuth authentication
+3. Enter 6-digit code from authenticator app
+4. Access dashboard
+
+### Students & Donors
+- Optional MFA with grace periods
+- Same setup process if enabled
 
 ---
 
@@ -232,7 +269,7 @@ All donations include:
 Automated emails for:
 - Welcome messages on registration
 - Donation receipts
-- MFA verification codes
+- MFA setup instructions
 - Password reset links
 - Platform updates
 - Community notifications
@@ -285,6 +322,16 @@ GET  /api/auth/me                  - Get current user
 POST /api/auth/logout              - Logout
 ```
 
+### Multi-Factor Authentication
+```
+POST /api/mfa/setup                - Generate MFA secret and QR code
+POST /api/mfa/verify-setup         - Verify and enable MFA
+POST /api/mfa/verify               - Verify MFA token during login
+GET  /api/mfa/status               - Get MFA status
+POST /api/mfa/disable              - Disable MFA
+POST /api/mfa/reset                - Reset MFA (for testing)
+```
+
 ### Payments
 ```
 POST /api/payments/stripe/create-checkout    - Stripe checkout
@@ -293,10 +340,16 @@ POST /api/payments/mtn/request               - MTN MoMo
 POST /api/payments/orange/initiate           - Orange Money
 ```
 
+### Admin Management
+```
+GET  /api/admin/dashboard          - Admin dashboard data
+GET  /api/admin/users              - Get all users
+PUT  /api/admin/users/:id/role     - Update user role
+```
+
 ### Role-Specific
 ```
 GET /api/student/dashboard         - Student data
-GET /api/admin/dashboard           - Admin data
 GET /api/donor/dashboard           - Donor data
 GET /api/volunteer/dashboard       - Volunteer data
 ```
@@ -316,7 +369,7 @@ npm run dev  # Starts with nodemon (auto-reload)
 ### Frontend Development
 ```bash
 cd frontend
-npm run dev  # Starts Vite dev server with HMR
+npm run dev  # Starts Vite dev server with HMR (auto-opens browser)
 ```
 
 ### Build for Production
@@ -336,7 +389,9 @@ npm start
 
 ### Manual Testing
 - Community pages (no authentication required)
-- OAuth login flows
+- OAuth login flows (Google and Azure AD)
+- MFA setup and verification
+- User role assignment
 - Payment gateway integrations
 - Real-time features
 - Email notifications
@@ -355,7 +410,10 @@ npm start
 MONGODB_URI=mongodb+srv://...
 JWT_SECRET=xxx
 GOOGLE_CLIENT_ID=xxx
+GOOGLE_CLIENT_SECRET=xxx
 AZURE_CLIENT_ID=xxx
+AZURE_TENANT_ID=xxx
+AZURE_CLIENT_SECRET=xxx
 STRIPE_SECRET_KEY=xxx
 PAYPAL_CLIENT_ID=xxx
 MTN_MOMO_API_KEY=xxx
@@ -427,10 +485,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### Phase 1 (Current)
 - ✅ MERN stack implementation
-- ✅ Dual OAuth integration
-- ✅ Payment gateway integration
-- ✅ Real-time features
-- ✅ Email service
+- ✅ Dual OAuth integration (Google + Microsoft Entra ID)
+- ✅ TOTP-based MFA with authenticator apps
+- ✅ User management and role assignment
+- ✅ Payment gateway integration (4 gateways)
+- ✅ Real-time features with Socket.io
+- ✅ Email service with Nodemailer
 
 ### Phase 2 (Q1 2024)
 - [ ] Course management system
@@ -470,6 +530,6 @@ If you find this project useful, please consider giving it a star ⭐
 
 **Built with ❤️ for Africa by Cloud Heroes Africa Team**
 
-**Version:** 2.0.0 (MERN Stack)  
+**Version:** 2.0.0 (MERN Stack with TOTP MFA)  
 **Last Updated:** 2024  
 **Status:** Active Development
