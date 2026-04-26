@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
+
+const STEPUP_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/auth/azure/stepup`;
 
 const RoleAssignment = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -13,46 +17,76 @@ const RoleAssignment = () => {
 
   const roles = ['student', 'donor', 'volunteer', 'administrator'];
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = async (silent = false) => {
     try {
-      setLoading(true);
-      const response = await api.get('/api/admin/users');
+      if (!silent) setLoading(true);
+      const response = await api.get('/admin/users');
       setUsers(response.data);
-      // Initialize selected roles
       const roleMap = {};
-      response.data.forEach(u => {
-        roleMap[u._id] = u.role;
-      });
+      response.data.forEach(u => { roleMap[u._id] = u.role; });
       setSelectedRole(roleMap);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch users');
-      console.error('Error fetching users:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  const handleRoleChange = async (userId, newRole) => {
-    if (newRole === selectedRole[userId]) return;
-
-    try {
-      await api.put(`/api/admin/users/${userId}/role`, { role: newRole });
-      setSelectedRole({
-        ...selectedRole,
-        [userId]: newRole
-      });
-      setUsers(users.map(u => 
-        u._id === userId ? { ...u, role: newRole } : u
-      ));
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update role');
-      console.error('Error updating role:', err);
+  useEffect(() => {
+    // Surface any step-up error that StepUpCallback forwarded via router state.
+    if (location.state?.stepUpError) {
+      setError(location.state.stepUpError);
+      // Clear it from history so a refresh doesn't re-show the error.
+      navigate(location.pathname, { replace: true, state: {} });
     }
+
+    const init = async () => {
+      await fetchUsers();
+
+      const pendingRaw  = sessionStorage.getItem('pendingRoleChange');
+      const stepUpToken = sessionStorage.getItem('stepUpToken');
+
+      if (!pendingRaw || !stepUpToken) return;
+
+      sessionStorage.removeItem('pendingRoleChange');
+
+      try {
+        const { userId, newRole } = JSON.parse(pendingRaw);
+        await api.put(
+          `/admin/users/${userId}/role`,
+          { role: newRole },
+          { headers: { 'X-StepUp-Token': stepUpToken } }
+        );
+        await fetchUsers(true);
+      } catch (err) {
+        if (err.response?.data?.requireStepUp) {
+          setError('Your Entra session expired before the change could be applied. Please try again.');
+        } else {
+          setError(err.response?.data?.message || 'Failed to apply the pending role change.');
+        }
+      } finally {
+        // Always discard the token after the pending action — every role
+        // assignment must trigger a fresh Entra authentication challenge.
+        sessionStorage.removeItem('stepUpToken');
+      }
+    };
+
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const initiateStepUp = (userId, newRole) => {
+    sessionStorage.setItem('pendingRoleChange', JSON.stringify({ userId, newRole }));
+    const returnUrl = encodeURIComponent('/admin/roles');
+    window.location.href = `${STEPUP_URL}?returnUrl=${returnUrl}`;
+  };
+
+  const handleRoleChange = (userId, newRole) => {
+    if (newRole === selectedRole[userId]) return;
+    // Every role assignment requires a fresh Entra authentication challenge —
+    // no cached token is ever reused.
+    initiateStepUp(userId, newRole);
   };
 
   return (
@@ -76,7 +110,7 @@ const RoleAssignment = () => {
 
         {loading ? (
           <div className="text-center py-8">
-            <p className="text-gray-600">Loading users...</p>
+            <p className="text-gray-600">Loading users…</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

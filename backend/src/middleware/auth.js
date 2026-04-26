@@ -69,6 +69,51 @@ exports.authorize = (...roles) => {
   };
 };
 
+// Require a valid Entra step-up token for sensitive/privileged operations.
+// The token is issued by /api/auth/azure/stepup after Entra re-authenticates
+// the user (with tenant-managed MFA). The frontend attaches it as the
+// X-StepUp-Token request header.
+exports.requireStepUp = (req, res, next) => {
+  const stepUpToken = req.headers['x-stepup-token'];
+
+  if (!stepUpToken) {
+    return res.status(403).json({
+      success: false,
+      message: 'Step-up authentication required. Please re-authenticate via Microsoft Entra to continue.',
+      requireStepUp: true
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(stepUpToken, process.env.JWT_SECRET);
+
+    if (!decoded.stepUp) {
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid step-up token.',
+        requireStepUp: true
+      });
+    }
+
+    // The step-up principal must be the same as the session principal.
+    if (decoded.id !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Step-up token does not belong to the authenticated user.',
+        requireStepUp: true
+      });
+    }
+
+    next();
+  } catch (error) {
+    return res.status(403).json({
+      success: false,
+      message: 'Step-up session expired or invalid. Please re-authenticate to continue.',
+      requireStepUp: true
+    });
+  }
+};
+
 // Check MFA requirement
 exports.checkMFA = async (req, res, next) => {
   try {

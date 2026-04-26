@@ -1,14 +1,35 @@
 import { useAuth } from '../../context/AuthContext';
 
+const STEPUP_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/auth/azure/stepup`;
+
 const StudentDashboard = () => {
   const { user } = useAuth();
+
+  const handleRevertToAdmin = () => {
+    sessionStorage.setItem('pendingRevertToAdmin', 'true');
+    const returnUrl = encodeURIComponent('/administrator/dashboard');
+    window.location.href = `${STEPUP_URL}?returnUrl=${returnUrl}`;
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="bg-white rounded-lg shadow-xl p-8 mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-4">Welcome, {user?.name}! 🎓</h1>
-        <p className="text-gray-600"><strong>Email:</strong> {user?.email}</p>
-        <p className="text-gray-600"><strong>Role:</strong> Student</p>
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome, {user?.name}! 🎓</h1>
+            <p className="text-gray-600"><strong>Email:</strong> {user?.email}</p>
+            <p className="text-gray-600"><strong>Role:</strong> Student</p>
+          </div>
+          <button
+            onClick={handleRevertToAdmin}
+            style={{ backgroundColor: '#b45309' }}
+            className="text-white px-5 py-2 rounded-lg cursor-pointer"
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#92400e'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#b45309'}
+          >
+            Revert to Administrator Dashboard
+          </button>
+        </div>
 
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-primary-600 mb-4">Your Learning Journey</h2>

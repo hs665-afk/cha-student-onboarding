@@ -24,9 +24,11 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Don't redirect if it's just an auth check request
       const isAuthCheck = error.config.url === '/auth/me';
-      
+
       if (!isAuthCheck) {
         localStorage.removeItem('token');
+        // Preserve where the user was so we can return them after re-auth
+        sessionStorage.setItem('returnUrl', window.location.pathname);
         window.location.href = '/login';
       }
     }

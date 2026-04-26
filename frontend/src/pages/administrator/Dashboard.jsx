@@ -1,6 +1,7 @@
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
+
 const AdministratorDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -15,14 +16,14 @@ const AdministratorDashboard = () => {
 
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-primary-600 mb-4">Platform Management</h2>
-          <div className="flex space-x-4">
-            <button 
+          <div className="flex flex-wrap gap-4">
+            <button
               onClick={() => navigate('/admin/users')}
               className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors cursor-pointer"
             >
               User Management
             </button>
-            <button 
+            <button
               onClick={() => navigate('/admin/roles')}
               className="bg-secondary-600 text-white px-6 py-3 rounded-lg hover:bg-secondary-700 transition-colors cursor-pointer"
             >

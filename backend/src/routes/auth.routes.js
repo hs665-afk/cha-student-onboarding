@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { generateToken, generateRefreshToken } = require('../config/jwt');
 const User = require('../models/User');
 const { sendWelcomeEmail } = require('../services/email/emailService');
+const { protect, requireStepUp } = require('../middleware/auth');
 
 // Google OAuth Strategy
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
@@ -118,6 +119,32 @@ router.get('/azure', (req, res) => {
   res.redirect(`${AZURE_AUTH_ENDPOINT}?${params.toString()}`);
 });
 
+// @route   GET /api/auth/azure/stepup
+// @desc    Initiate Entra step-up authentication for sensitive operations.
+//          Uses prompt=login so Entra always challenges the user (including
+//          Entra-managed MFA such as number matching) before redirecting back.
+// @access  Public (called by browser redirect, not from JS)
+router.get('/azure/stepup', (req, res) => {
+  const { returnUrl = '/' } = req.query;
+  const state = crypto.randomBytes(16).toString('hex');
+  authStates.set(state, { createdAt: Date.now(), isStepUp: true, returnUrl });
+
+  const params = new URLSearchParams({
+    client_id:     process.env.AZURE_CLIENT_ID,
+    redirect_uri:  process.env.AZURE_CALLBACK_URL,
+    response_type: 'code',
+    scope:         'openid profile email',
+    state,
+    response_mode: 'query',
+    // Force a fresh Entra challenge — Entra Conditional Access / Authentication
+    // Strength policies defined in the tenant will enforce MFA (number matching
+    // etc.) as part of this fresh login, without the app embedding any MFA logic.
+    prompt:        'login',
+  });
+
+  res.redirect(`${AZURE_AUTH_ENDPOINT}?${params.toString()}`);
+});
+
 // @route   GET /api/auth/azure/callback
 // @desc    Azure AD OAuth callback
 // @access  Public
@@ -190,7 +217,53 @@ router.get('/azure/callback', async (req, res) => {
     
     // Find or create user
     let user = await User.findOne({ providerId: decoded.oid, provider: 'azure' });
-    
+
+    // ── Step-up authentication branch ────────────────────────────────────────
+    // When the request came from /azure/stepup the state carries isStepUp:true.
+    // We never create users here — the principal must already exist.  Entra
+    // enforced fresh authentication (including tenant-managed MFA such as number
+    // matching) via prompt=login; we verify that in the amr claim, then issue a
+    // short-lived step-up JWT the frontend attaches to privileged API calls.
+    if (stateData.isStepUp) {
+      if (!user) {
+        console.error('❌ Step-up: Entra user has no matching account in this app');
+        const dest = encodeURIComponent(stateData.returnUrl || '/');
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/auth/stepup/callback?error=account_not_found&returnUrl=${dest}`
+        );
+      }
+
+      // Log which authentication methods Entra recorded (amr = Authentication
+      // Methods References). In a production tenant with Conditional Access /
+      // Authentication Strength requiring MFA, this will include 'mfa', 'ngcmfa',
+      // 'oath', etc.  We log but do not hard-block here so dev tenants without CA
+      // still work; tighten by setting REQUIRE_ENTRA_MFA=true in production.
+      const amr = decoded.amr || [];
+      const mfaMethodTokens = ['mfa', 'ngcmfa', 'rsa', 'hwk', 'oath', 'swk', 'tel'];
+      const mfaConfirmed = amr.some(m => mfaMethodTokens.includes(m));
+      console.log(`🔐 Step-up for ${user.email} — amr:[${amr.join(',')}] mfa:${mfaConfirmed}`);
+
+      if (!mfaConfirmed && process.env.REQUIRE_ENTRA_MFA === 'true') {
+        const dest = encodeURIComponent(stateData.returnUrl || '/');
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/auth/stepup/callback?error=mfa_not_satisfied&returnUrl=${dest}`
+        );
+      }
+
+      const stepUpToken = jwt.sign(
+        { id: user._id.toString(), role: user.role, stepUp: true },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.STEPUP_TOKEN_EXPIRE || '15m' }
+      );
+
+      const dest = encodeURIComponent(stateData.returnUrl || '/');
+      console.log('✅ Step-up token issued for:', user.email);
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/auth/stepup/callback?stepUpToken=${stepUpToken}&returnUrl=${dest}`
+      );
+    }
+    // ── End step-up branch ───────────────────────────────────────────────────
+
     if (!user) {
       user = await User.create({
         name: decoded.name,
@@ -200,9 +273,9 @@ router.get('/azure/callback', async (req, res) => {
         role: 'administrator',
         isVerified: true
       });
-      
+
       console.log('✅ New Azure user created:', user.email);
-      
+
       // Send welcome email (non-blocking)
       sendWelcomeEmail(user).catch(err => {
         console.error('Failed to send welcome email:', err.message);
@@ -210,28 +283,28 @@ router.get('/azure/callback', async (req, res) => {
     } else {
       console.log('✅ Existing Azure user found:', user.email);
     }
-    
+
     // Update last login
     user.lastLogin = new Date();
     await user.save();
-    
+
     // Generate JWT tokens
     const token = generateToken(user._id, user.role);
     const refreshToken = generateRefreshToken(user._id);
-    
+
     // Set cookies
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
-    
+
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 30 * 24 * 60 * 60 * 1000
     });
-    
+
     console.log('✅ Azure Auth Success:', user.email);
     res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}&role=${user.role}`);
   } catch (error) {
@@ -273,6 +346,35 @@ router.get('/me', async (req, res) => {
       success: false,
       message: 'Invalid token'
     });
+  }
+});
+
+// @route   POST /api/auth/revert-to-admin
+// @desc    Revert the authenticated user's OWN role back to administrator.
+//          No role restriction — any authenticated user who proves their
+//          identity via Entra step-up can use this to recover admin access.
+//          Returns a fresh JWT so the client session reflects the new role
+//          immediately without a full re-login.
+// @access  Private + step-up
+router.post('/revert-to-admin', protect, requireStepUp, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { role: 'administrator' },
+      { new: true, runValidators: true }
+    ).select('-password -refreshToken');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const token = generateToken(user._id, user.role);
+
+    console.log(`✅ Role reverted to administrator for: ${user.email}`);
+
+    res.json({ success: true, token, user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to revert role.', error: error.message });
   }
 });
 

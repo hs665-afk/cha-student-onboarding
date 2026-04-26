@@ -24,7 +24,9 @@ const AuthCallback = () => {
         .then(data => {
           if (data.success) {
             setUser(data.user);
-            navigate(`/${role}/dashboard`);
+            const returnUrl = sessionStorage.getItem('returnUrl');
+            sessionStorage.removeItem('returnUrl');
+            navigate(returnUrl || `/${role}/dashboard`);
           }
         })
         .catch(err => {

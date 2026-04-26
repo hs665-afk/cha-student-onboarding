@@ -6,6 +6,7 @@ import { SocketProvider } from './context/SocketContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
+import StepUpCallback from './pages/StepUpCallback';
 import StudentDashboard from './pages/student/Dashboard';
 import AdministratorDashboard from './pages/administrator/Dashboard';
 import UserManagement from './pages/administrator/UserManagement';
@@ -33,6 +34,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/auth/stepup/callback" element={<StepUpCallback />} />
               
               {/* Community Routes (Public) */}
               <Route path="/community" element={<CommunityHome />} />

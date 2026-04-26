@@ -1,41 +1,97 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
+
+const STEPUP_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/auth/azure/stepup`;
 
 const UserManagement = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = async (silent = false) => {
     try {
-      setLoading(true);
-      const response = await api.get('/api/admin/users');
+      if (!silent) setLoading(true);
+      const response = await api.get('/admin/users');
       setUsers(response.data);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch users');
-      console.error('Error fetching users:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
+  useEffect(() => {
+    // Surface any step-up error forwarded by StepUpCallback via router state.
+    if (location.state?.stepUpError) {
+      setError(location.state.stepUpError);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+
+    const init = async () => {
+      await fetchUsers();
+
+      const pendingRaw  = sessionStorage.getItem('pendingDeleteUser');
+      const stepUpToken = sessionStorage.getItem('stepUpToken');
+
+      if (!pendingRaw || !stepUpToken) return;
+
+      sessionStorage.removeItem('pendingDeleteUser');
+
+      try {
+        const { userId } = JSON.parse(pendingRaw);
+        await api.delete(`/admin/users/${userId}`, {
+          headers: { 'X-StepUp-Token': stepUpToken }
+        });
+        await fetchUsers(true);
+      } catch (err) {
+        if (err.response?.data?.requireStepUp) {
+          sessionStorage.removeItem('stepUpToken');
+          setError('Your Entra session expired before the deletion could be applied. Please try again.');
+        } else {
+          setError(err.response?.data?.message || 'Failed to complete the pending user deletion.');
+        }
+      }
+    };
+
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const initiateStepUp = (userId) => {
+    sessionStorage.setItem('pendingDeleteUser', JSON.stringify({ userId }));
+    const returnUrl = encodeURIComponent('/admin/users');
+    window.location.href = `${STEPUP_URL}?returnUrl=${returnUrl}`;
+  };
+
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
-    
+    if (!window.confirm('Are you sure you want to permanently delete this user?')) return;
+
+    const stepUpToken = sessionStorage.getItem('stepUpToken');
+
+    if (!stepUpToken) {
+      initiateStepUp(userId);
+      return;
+    }
+
     try {
-      await api.delete(`/api/admin/users/${userId}`);
-      setUsers(users.filter(u => u._id !== userId));
+      await api.delete(`/admin/users/${userId}`, {
+        headers: { 'X-StepUp-Token': stepUpToken }
+      });
+      setUsers(prev => prev.filter(u => u._id !== userId));
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete user');
+      if (err.response?.data?.requireStepUp) {
+        sessionStorage.removeItem('stepUpToken');
+        initiateStepUp(userId);
+      } else {
+        setError(err.response?.data?.message || 'Failed to delete user.');
+      }
     }
   };
 
@@ -60,7 +116,7 @@ const UserManagement = () => {
 
         {loading ? (
           <div className="text-center py-8">
-            <p className="text-gray-600">Loading users...</p>
+            <p className="text-gray-600">Loading users…</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

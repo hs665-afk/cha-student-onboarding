@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, requireStepUp } = require('../middleware/auth');
 const User = require('../models/User');
 
 // @route   GET /api/admin/dashboard
@@ -32,7 +32,7 @@ router.get('/users', protect, authorize('administrator'), async (req, res) => {
 // @route   DELETE /api/admin/users/:id
 // @desc    Delete a user
 // @access  Private (Administrator only)
-router.delete('/users/:id', protect, authorize('administrator'), async (req, res) => {
+router.delete('/users/:id', protect, requireStepUp, authorize('administrator'), async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) {
@@ -47,7 +47,7 @@ router.delete('/users/:id', protect, authorize('administrator'), async (req, res
 // @route   PUT /api/admin/users/:id/role
 // @desc    Update user role
 // @access  Private (Administrator only)
-router.put('/users/:id/role', protect, authorize('administrator'), async (req, res) => {
+router.put('/users/:id/role', protect, requireStepUp, authorize('administrator'), async (req, res) => {
   try {
     const { role } = req.body;
     const validRoles = ['student', 'donor', 'volunteer', 'administrator'];
