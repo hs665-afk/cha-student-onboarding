@@ -1,3 +1,5 @@
+require('dotenv').config(); // ⚠️ Must be FIRST — env vars needed by passport strategies at load time
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -8,7 +10,6 @@ const session = require('express-session');
 const passport = require('passport');
 const http = require('http');
 const socketIO = require('socket.io');
-require('dotenv').config();
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -92,10 +93,7 @@ app.use('/api/mfa', mfaRoutes);
 app.use(errorHandler);
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
+mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log('✅ MongoDB Connected'))
 .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
