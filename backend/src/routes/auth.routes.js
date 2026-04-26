@@ -31,7 +31,7 @@ passport.use(new GoogleStrategy({
           role: 'student', // Default role for Google OAuth
           isVerified: true
         });
-        
+
         // Send welcome email (non-blocking)
         sendWelcomeEmail(user).catch(err => {
           console.error('Failed to send welcome email to', user.email, ':', err.message);
@@ -382,8 +382,18 @@ router.post('/revert-to-admin', protect, requireStepUp, async (req, res) => {
 // @desc    Logout user
 // @access  Private
 router.post('/logout', (req, res) => {
-  res.clearCookie('token');
-  res.clearCookie('refreshToken');
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/'
+  });
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/'
+  });
   
   res.json({
     success: true,

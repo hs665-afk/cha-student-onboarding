@@ -38,11 +38,8 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Logout API call failed:', error);
     } finally {
-      localStorage.removeItem('token');
-      sessionStorage.removeItem('stepUpToken');
-      sessionStorage.removeItem('pendingRoleChange');
-      sessionStorage.removeItem('pendingDeleteUser');
-      sessionStorage.removeItem('returnUrl');
+      localStorage.clear();
+      sessionStorage.clear();
       setUser(null);
       window.location.href = '/';
     }

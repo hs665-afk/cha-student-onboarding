@@ -13,12 +13,9 @@ const AuthCallback = () => {
 
     if (token && role) {
       localStorage.setItem('token', token);
-      
-      // Fetch user data
+
       fetch(`${import.meta.env.VITE_API_URL}/api/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       })
         .then(res => res.json())
         .then(data => {

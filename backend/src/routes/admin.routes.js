@@ -31,7 +31,7 @@ router.get('/users', protect, authorize('administrator'), async (req, res) => {
 
 // @route   DELETE /api/admin/users/:id
 // @desc    Delete a user
-// @access  Private (Administrator only)
+// @access  Private (Administrator only) + step-up
 router.delete('/users/:id', protect, requireStepUp, authorize('administrator'), async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
@@ -46,12 +46,12 @@ router.delete('/users/:id', protect, requireStepUp, authorize('administrator'), 
 
 // @route   PUT /api/admin/users/:id/role
 // @desc    Update user role
-// @access  Private (Administrator only)
+// @access  Private (Administrator only) + step-up
 router.put('/users/:id/role', protect, requireStepUp, authorize('administrator'), async (req, res) => {
   try {
     const { role } = req.body;
     const validRoles = ['student', 'donor', 'volunteer', 'administrator'];
-    
+
     if (!role || !validRoles.includes(role)) {
       return res.status(400).json({ message: 'Invalid role provided' });
     }

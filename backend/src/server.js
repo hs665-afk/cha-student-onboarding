@@ -1,3 +1,5 @@
+require('dotenv').config(); // ⚠️ Must be FIRST — env vars needed by passport strategies at load time
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -5,9 +7,9 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
+const passport = require('passport');
 const http = require('http');
 const socketIO = require('socket.io');
-require('dotenv').config();
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -56,8 +58,6 @@ app.use(session({
   }
 }));
 
-// Passport initialization (required for OIDC)
-const passport = require('passport');
 app.use(passport.initialize());
 app.use(passport.session());
 

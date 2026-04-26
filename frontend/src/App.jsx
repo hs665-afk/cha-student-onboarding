@@ -24,7 +24,7 @@ import PrivateRoute from './components/auth/PrivateRoute';
 
 function App() {
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
         <SocketProvider>
           <div className="min-h-screen bg-gradient-to-br from-primary-500 to-purple-600">
@@ -35,20 +35,20 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/auth/stepup/callback" element={<StepUpCallback />} />
-              
+
               {/* Community Routes (Public) */}
               <Route path="/community" element={<CommunityHome />} />
               <Route path="/community/forum" element={<Forum />} />
               <Route path="/community/resources" element={<Resources />} />
               <Route path="/community/impact" element={<Impact />} />
-              
+
               {/* Protected Routes */}
               <Route path="/student/dashboard" element={
                 <PrivateRoute role="student">
                   <StudentDashboard />
                 </PrivateRoute>
               } />
-              
+
               <Route path="/administrator/dashboard" element={
                 <PrivateRoute role="administrator">
                   <AdministratorDashboard />
@@ -66,13 +66,13 @@ function App() {
                   <RoleAssignment />
                 </PrivateRoute>
               } />
-              
+
               <Route path="/donor/dashboard" element={
                 <PrivateRoute role="donor">
                   <DonorDashboard />
                 </PrivateRoute>
               } />
-              
+
               <Route path="/volunteer/dashboard" element={
                 <PrivateRoute role="volunteer">
                   <VolunteerDashboard />
