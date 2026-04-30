@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, requireStepUp } = require('../middleware/auth');
 const User = require('../models/User');
 
 // @route   GET /api/admin/dashboard
@@ -38,8 +38,8 @@ router.get('/users', protect, authorize('administrator'), async (req, res) => {
 
 // @route   PUT /api/admin/users/:id/role
 // @desc    Update user role
-// @access  Private (Administrator only)
-router.put('/users/:id/role', protect, authorize('administrator'), async (req, res) => {
+// @access  Private (Administrator only + Step-up MFA)
+router.put('/users/:id/role', protect, authorize('administrator'), requireStepUp(60), async (req, res) => {
   try {
     const { role } = req.body;
     const validRoles = ['student', 'donor', 'volunteer', 'administrator'];

@@ -25,38 +25,54 @@ const AuthCallback = () => {
       })
         .then(res => res.json())
         .then(data => {
-          console.log('User data:', data);
           if (data.success) {
             setUser(data.user);
             
-            // Check MFA status for admins and volunteers
-            if (['administrator', 'volunteer'].includes(role)) {
-              console.log('Checking MFA status for', role);
-              fetch(`${import.meta.env.VITE_API_URL}/api/mfa/status`, {
-                headers: {
-                  'Authorization': `Bearer ${token}`
-                }
-              })
-                .then(res => res.json())
-                .then(mfaData => {
-                  console.log('MFA Status:', mfaData);
-                  if (mfaData.success && !mfaData.mfaEnabled) {
-                    console.log('Redirecting to MFA setup');
-                    navigate('/mfa-setup');
-                  } else if (mfaData.success && mfaData.mfaEnabled) {
-                    console.log('MFA enabled - redirecting to verification');
-                    navigate('/mfa-verify', { state: { role } });
-                  } else {
-                    console.log('Going to dashboard');
-                    navigate(`/${role}/dashboard`);
-                  }
+            // Check for any pending sensitive actions (Step-up MFA)
+            const pendingRequest = localStorage.getItem('pendingRequest');
+            if (pendingRequest) {
+              const request = JSON.parse(pendingRequest);
+              
+              // Only resume if it's recent (less than 10 mins)
+              if (Date.now() - request.timestamp < 600000) {
+                localStorage.removeItem('pendingRequest');
+                
+                // Use fetch with the new token directly to resume the action
+                fetch(`${import.meta.env.VITE_API_URL}/api${request.url}`, {
+                  method: request.method.toUpperCase(),
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: request.data
                 })
-                .catch(err => {
-                  console.error('MFA check error:', err);
-                  navigate(`/${role}/dashboard`);
-                });
+                  .then(() => {
+                    console.log('Pending action resumed successfully');
+                    const savedRedirect = localStorage.getItem('redirectAfterMfa');
+                    if (savedRedirect) {
+                      localStorage.removeItem('redirectAfterMfa');
+                      navigate(savedRedirect);
+                    } else {
+                      navigate(`/${role}/dashboard`);
+                    }
+                  })
+                  .catch(err => {
+                    console.error('Failed to resume pending action:', err);
+                    navigate(`/${role}/dashboard`);
+                  });
+                return; // Wait for the fetch to complete
+              } else {
+                localStorage.removeItem('pendingRequest');
+              }
+            }
+
+            // Check if this was a standard Step-up MFA redirect (without pending request)
+            const savedRedirect = localStorage.getItem('redirectAfterMfa');
+            if (savedRedirect) {
+              localStorage.removeItem('redirectAfterMfa');
+              navigate(savedRedirect);
             } else {
-              console.log('Student/Donor - going to dashboard');
+              // Default role-based navigation
               navigate(`/${role}/dashboard`);
             }
           }

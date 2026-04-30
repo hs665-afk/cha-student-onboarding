@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 
@@ -76,7 +77,7 @@ const AdministratorDashboard = () => {
 
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-primary-600 mb-4">Platform Management</h2>
-          <div className="flex space-x-4">
+          <div className="flex flex-wrap gap-4">
             <button 
               onClick={() => {
                 setShowUserManagement(!showUserManagement);
@@ -97,6 +98,30 @@ const AdministratorDashboard = () => {
             >
               Role Assignment
             </button>
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold text-primary-600 mb-4">Preview Role Dashboards</h2>
+          <div className="flex flex-wrap gap-4">
+            <Link 
+              to="/student/dashboard" 
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition flex items-center"
+            >
+              🎓 Student View
+            </Link>
+            <Link 
+              to="/donor/dashboard" 
+              className="bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 transition flex items-center"
+            >
+              💝 Donor View
+            </Link>
+            <Link 
+              to="/volunteer/dashboard" 
+              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition flex items-center"
+            >
+              🤝 Volunteer View
+            </Link>
           </div>
         </div>
 

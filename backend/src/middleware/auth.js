@@ -26,6 +26,10 @@ exports.protect = async (req, res, next) => {
 
       // Get user from token
       req.user = await User.findById(decoded.id).select('-password');
+      
+      // Attach auth metadata for step-up checks
+      req.userAmr = decoded.amr || [];
+      req.userAuthTime = decoded.authTime || Math.floor(Date.now() / 1000);
 
       if (!req.user) {
         return res.status(401).json({
@@ -69,36 +73,32 @@ exports.authorize = (...roles) => {
   };
 };
 
-// Check MFA requirement
-exports.checkMFA = async (req, res, next) => {
-  try {
-    const user = req.user;
+/**
+ * Step-up Authentication Middleware
+ * Ensures the user has performed a fresh Entra MFA within the last X minutes.
+ * Used for sensitive operations like role changes or data deletion.
+ */
+exports.requireStepUp = (maxAgeInSeconds = 900) => {
+  return (req, res, next) => {
+    // Only applies to Azure/Entra users
+    if (req.user.provider !== 'azure') {
+      return next();
+    }
 
-    // Admins and volunteers require immediate MFA
-    if (['administrator', 'volunteer'].includes(user.role) && !user.mfaEnabled) {
+    const now = Math.floor(Date.now() / 1000);
+    const authTime = req.userAuthTime; // Set by protect middleware
+    const ageInSeconds = now - authTime;
+
+    if (ageInSeconds > maxAgeInSeconds) {
       return res.status(403).json({
         success: false,
-        message: 'MFA is required for your role',
-        requireMFA: true
+        message: 'Elevated security required. Please re-authenticate to perform this action.',
+        requireStepUp: true,
+        authUrl: `${process.env.API_URL}/api/auth/azure?prompt=login`
       });
     }
 
-    // Students and donors have grace period
-    if (['student', 'donor'].includes(user.role) && !user.mfaEnabled) {
-      if (!user.isWithinMfaGracePeriod()) {
-        return res.status(403).json({
-          success: false,
-          message: 'MFA grace period has expired. Please enable MFA.',
-          requireMFA: true
-        });
-      }
-    }
-
     next();
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
-  }
+  };
 };
+

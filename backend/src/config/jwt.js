@@ -1,8 +1,13 @@
 const jwt = require('jsonwebtoken');
 
-const generateToken = (userId, role) => {
+const generateToken = (userId, role, amr = [], authTime = Math.floor(Date.now() / 1000)) => {
   return jwt.sign(
-    { id: userId, role },
+    { 
+      id: userId, 
+      role,
+      amr,      // Authentication Methods Reference from Entra
+      authTime  // When Entra verified the user
+    },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRE || '7d' }
   );

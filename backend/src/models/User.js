@@ -42,21 +42,6 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  mfaEnabled: {
-    type: Boolean,
-    default: false
-  },
-  mfaSecret: {
-    type: String,
-    select: false
-  },
-  mfaBackupCodes: {
-    type: [String],
-    select: false
-  },
-  mfaEnrollmentDate: {
-    type: Date
-  },
   lastLogin: {
     type: Date
   },
@@ -104,24 +89,5 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Check MFA grace period
-userSchema.methods.isWithinMfaGracePeriod = function() {
-  if (this.mfaEnabled) return false;
-  
-  const gracePeriods = {
-    student: parseInt(process.env.MFA_GRACE_STUDENT) || 14,
-    donor: parseInt(process.env.MFA_GRACE_DONOR) || 30,
-    administrator: 0,
-    volunteer: 0
-  };
-  
-  const graceDays = gracePeriods[this.role];
-  if (graceDays === 0) return false;
-  
-  const enrollmentDate = this.mfaEnrollmentDate || this.createdAt;
-  const daysSinceEnrollment = (Date.now() - enrollmentDate) / (1000 * 60 * 60 * 24);
-  
-  return daysSinceEnrollment <= graceDays;
-};
 
 module.exports = mongoose.model('User', userSchema);
