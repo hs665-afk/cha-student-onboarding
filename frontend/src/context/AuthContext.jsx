@@ -35,18 +35,12 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await api.post('/auth/logout');
-      setUser(null);
-      // Clear any local storage or session storage
-      localStorage.clear();
-      sessionStorage.clear();
-      // Redirect to home
-      window.location.href = '/';
     } catch (error) {
       console.error('Logout failed:', error);
-      // Force logout even if API call fails
-      setUser(null);
+    } finally {
       localStorage.clear();
       sessionStorage.clear();
+      setUser(null);
       window.location.href = '/';
     }
   };

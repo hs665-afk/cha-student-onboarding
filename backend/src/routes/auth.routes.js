@@ -4,6 +4,7 @@ const passport = require('passport');
 const { generateToken, generateRefreshToken } = require('../config/jwt');
 const User = require('../models/User');
 const { sendWelcomeEmail } = require('../services/email/emailService');
+const { protect, requireStepUp } = require('../middleware/auth');
 
 // Google OAuth Strategy
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
@@ -105,18 +106,8 @@ passport.use(new AzureStrategy({
           user.provider = 'azure';
           user.providerId = profile.oid;
         }
-        
-        // Safety: If logging in via Azure AD, ensure they have an administrative role
-        // Specifically fixing the role for the user who lost admin access
-        if (email === 'allen.nebota@cloudheroesafrica.com' || email.endsWith('@cloudheroesafrica.com')) {
-          user.role = 'administrator';
-        }
       }
 
-      // Note: We no longer reject the login here. 
-      // We trust Microsoft Entra to enforce MFA via Conditional Access policies.
-      // The hasMFA status is captured in the JWT and will be used for Step-up checks.
-      
       user.lastLogin = new Date();
       await user.save();
       
@@ -223,10 +214,22 @@ router.get('/azure/callback', (req, res, next) => {
 
     // Capture user data BEFORE req.logout() nullifies req.user
     const userRole = user.role;
-    
+
     // Extract Entra-specific claims
     const amr = req.authInfo?.amr || [];
-    const authTime = req.authInfo?.auth_time || Math.floor(Date.now() / 1000);
+
+    // For step-up flows, Azure's auth_time reflects the original cached session time, not
+    // the moment of this re-authentication. Use the current server time so the step-up
+    // window check in requireStepUp() passes immediately after this redirect.
+    const isStepUp = req.session.pendingStepUp === true;
+    const authTime = isStepUp
+      ? Math.floor(Date.now() / 1000)
+      : (req.authInfo?.auth_time || Math.floor(Date.now() / 1000));
+
+    // Clear the flag before req.logout() destroys the session
+    if (isStepUp) {
+      req.session.pendingStepUp = false;
+    }
 
     const token = generateToken(user._id, userRole, amr, authTime);
     const refreshToken = generateRefreshToken(user._id);
@@ -242,6 +245,8 @@ router.get('/azure/callback', (req, res, next) => {
       secure: process.env.NODE_ENV === 'production',
       maxAge: 30 * 24 * 60 * 60 * 1000
     });
+
+    console.log(`[AUTH DEBUG] Token issued. Step-up: ${isStepUp}, authTime: ${authTime}`);
 
     // Clear the passport session after issuing JWT
     req.logout(() => {
@@ -283,6 +288,31 @@ router.get('/me', async (req, res) => {
       success: false,
       message: 'Invalid token'
     });
+  }
+});
+
+// @route   POST /api/auth/revert-to-admin
+// @desc    Revert the authenticated user's OWN role back to administrator.
+// @access  Private + step-up
+router.post('/revert-to-admin', protect, requireStepUp(300), async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { role: 'administrator' },
+      { new: true, runValidators: true }
+    ).select('-password -refreshToken');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const token = generateToken(user._id, user.role);
+
+    console.log(`✅ Role reverted to administrator for: ${user.email}`);
+
+    res.json({ success: true, token, user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to revert role.', error: error.message });
   }
 });
 

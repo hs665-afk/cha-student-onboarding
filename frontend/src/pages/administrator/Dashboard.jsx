@@ -42,24 +42,20 @@ const AdministratorDashboard = () => {
     setStats(stats);
   };
 
-  const handleRoleChange = async () => {
-    if (!selectedUser || !newRole) return;
+  const handleRoleChange = () => {
+    if (!selectedUser || !newRole || newRole === selectedUser.role) return;
 
-    try {
-      setLoading(true);
-      const response = await api.put(`/admin/users/${selectedUser._id}/role`, { role: newRole });
-      if (response.data.success) {
-        alert('Role updated successfully!');
-        fetchUsers();
-        setShowRoleAssignment(false);
-        setSelectedUser(null);
-        setNewRole('');
-      }
-    } catch (error) {
-      alert('Failed to update role: ' + (error.response?.data?.message || error.message));
-    } finally {
-      setLoading(false);
-    }
+    // Save the pending role change so AuthCallback can auto-resume it after step-up
+    localStorage.setItem('pendingRequest', JSON.stringify({
+      url: `/admin/users/${selectedUser._id}/role`,
+      method: 'put',
+      data: JSON.stringify({ role: newRole }),
+      timestamp: Date.now()
+    }));
+    localStorage.setItem('redirectAfterMfa', window.location.pathname);
+
+    // Every role change requires a fresh Azure elevated security re-authentication
+    window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/azure?prompt=login`;
   };
 
   const openRoleAssignment = (user) => {
@@ -74,6 +70,7 @@ const AdministratorDashboard = () => {
         <h1 className="text-3xl font-bold text-gray-800 mb-4">Administrator Dashboard 👨💼</h1>
         <p className="text-gray-600"><strong>Name:</strong> {user?.name}</p>
         <p className="text-gray-600"><strong>Email:</strong> {user?.email}</p>
+        <p className="text-gray-600"><strong>Role:</strong> <span className="font-bold text-primary-600">{user?.role}</span></p>
 
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-primary-600 mb-4">Platform Management</h2>
@@ -224,10 +221,10 @@ const AdministratorDashboard = () => {
               <div className="flex space-x-4">
                 <button
                   onClick={handleRoleChange}
-                  disabled={loading || newRole === selectedUser.role}
+                  disabled={newRole === selectedUser.role}
                   className="flex-1 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Updating...' : 'Update Role'}
+                  Verify with Microsoft & Update
                 </button>
                 <button
                   onClick={() => {

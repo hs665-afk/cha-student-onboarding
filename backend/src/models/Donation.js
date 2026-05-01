@@ -62,6 +62,6 @@ const donationSchema = new mongoose.Schema({
 // Index for faster queries
 donationSchema.index({ donor: 1, createdAt: -1 });
 donationSchema.index({ paymentStatus: 1 });
-donationSchema.index({ transactionId: 1 });
+// transactionId auto-indexed via unique: true, no need for explicit index
 
 module.exports = mongoose.model('Donation', donationSchema);

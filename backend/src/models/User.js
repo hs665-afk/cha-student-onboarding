@@ -42,6 +42,21 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  mfaEnabled: {
+    type: Boolean,
+    default: false
+  },
+  mfaSecret: {
+    type: String,
+    select: false
+  },
+  mfaBackupCodes: {
+    type: [String],
+    select: false
+  },
+  mfaEnrollmentDate: {
+    type: Date
+  },
   lastLogin: {
     type: Date
   },
